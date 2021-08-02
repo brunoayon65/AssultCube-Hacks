@@ -1,73 +1,90 @@
+/*
+    This program going to change this two lines who suppose to move edx reciol func address
+    *****************************************
+    the code:
+    .text:00463786                 push    eax
+    .text:00463787                 lea     ecx, [esp+34h+var_18]
+    .text:0046378B                 push    ecx
+    .text:0046378C                 mov     ecx, esi
+    .text:0046378E                 call    edx
+    opcodes:
+    50 8D  4C 24 1C 51 8B CE FF D2
+    ******************************************
+    to do nothing
+    opcodes:
+    0x90 * 10.
+*/
 
 #include <Windows.h>
 #include "stdio.h"
 #include <Psapi.h>
+#include <processthreadsapi.h>
 
 LPCWSTR WINDOW_NAME = L"AssaultCube";
-DWORD NEW_PLAYER_HEALTH = 10000;
+//Char is the only type who is one byte.
+CHAR BYTE_TO_INJECT[10] = { 0x90, 0x90, 0x90,0x90,0x90 ,0x90 ,0x90 ,0x90 ,0x90, 0x90 };
 
-#define PLAYER_RELATIVE_ADDRESS 0x10F4F4
-#define HEALTH_OFFSET 0xF8
+#define PLAYER_RELATIVE_ADDRESS 0x10F4F4 
+#define FUNC_LENGTH 549 // In bytes.
+#define INJECT_ADDRESS 0x63786
+// This is a relative address to the process base pointer.
+// From there the program read the address of the reciol funciton.
 
-DWORD getModuleHandle(HANDLE processHandle);
+void increaseHealth();
+DWORD getProcBaseAdd(HANDLE processHandle);
+DWORD patchBytes(HANDLE , PVOID , PVOID , SIZE_T );
 
 int main()
 {
-    DWORD playerHealth = 0;
-    // Get proc Id.
-	HWND hWnd = FindWindow(0, WINDOW_NAME);
-	if (hWnd == NULL)
-	{
-		printf("error 1");
-		return 0;
-	}
-	DWORD pId;
-	GetWindowThreadProcessId(hWnd, &pId);
-    
+    DWORD procId = 0;
+    HWND hWnd = FindWindow(0, WINDOW_NAME);
+    if (hWnd == NULL)
+    {
+        printf("error finding game's window");
+        return 0;
+    }
+    GetWindowThreadProcessId(hWnd, &procId);
+
     // get proc handle
-	HANDLE hProc= OpenProcess(PROCESS_ALL_ACCESS, FALSE, pId);
-	if (!hProc)
-	{
-        perror("Open process failed");
-		printf("error 2");
-		return 0;
-	}
-
-    // proc baseaddress after lodaing to the RAM. probably 0x400000.
-	DWORD_PTR baseAddress = (DWORD)getModuleHandle(hProc);
-    printf("proc start in this address: %d \n", baseAddress);
-
-    // The pointer to player struct is a static address.
-    // always be in the same relative place to proc base address
-    DWORD_PTR pPlayer = baseAddress + PLAYER_RELATIVE_ADDRESS;
-    printf("Player address is: %d \n", pPlayer);
-
-    // Get player health location
-    PVOID pHealth = 0;
-    int is_valid = ReadProcessMemory(hProc, (LPCVOID)pPlayer, &pHealth, sizeof(DWORD), NULL);
-    if (!is_valid)
+    HANDLE hProc = OpenProcess(PROCESS_ALL_ACCESS, FALSE, procId);
+    if (!hProc)
     {
-        printf("error 3");
+        perror("error opening remote process: ");
         return 0;
     }
-    // pHealth now got the address of the player.
-    pHealth = PVOID(DWORD(pHealth) + HEALTH_OFFSET);
+    DWORD_PTR baseAddress = getProcBaseAdd(hProc);
 
-    // Get player health.
-    printf("player health address is: %d \n", (DWORD)pHealth);
-    is_valid = ReadProcessMemory(hProc, pHealth, &playerHealth, sizeof(int), NULL);
-    if (!is_valid)
+
+    // Find call reciol func
+    PVOID injectionAddr = (PVOID)(baseAddress + INJECT_ADDRESS);
+
+    // Change call reciol to do nothing.
+    bool isValid = patchBytes(hProc, injectionAddr, &BYTE_TO_INJECT, sizeof(BYTE_TO_INJECT));
+    if (!isValid)
     {
-        printf("error 4");
+        printf("faild patch mov dx byte in remote process memory");
         return 0;
     }
-    printf("Player current health is %d \n", playerHealth);
 
-    //Change player health.
-    WriteProcessMemory(hProc, pHealth, &NEW_PLAYER_HEALTH, sizeof(int), NULL);
+    printf(" Injected successfully in address%p", injectionAddr);
+    return 1;
 }
 
-DWORD_PTR getModuleHandle(HANDLE processHandle)
+
+DWORD patchBytes(HANDLE hProc, PVOID patchAddress, PVOID dataAddress, SIZE_T size)
+{
+    DWORD oldProtect;
+    if (!VirtualProtectEx(hProc, patchAddress, size, PAGE_EXECUTE_READWRITE, &oldProtect)) // Return 0 on fail
+        return 0;
+    if (!WriteProcessMemory(hProc, patchAddress, dataAddress, size, NULL)) // Return 0 on fail
+        return 0;
+    if (!VirtualProtectEx(hProc, patchAddress, size, oldProtect, &oldProtect)) // Return 0 on fail
+        return 0;
+    return 1;
+}
+
+
+DWORD_PTR getProcBaseAdd(HANDLE processHandle)
 {
     // TODO: undresatnd code.
     DWORD_PTR   baseAddress = 0;
@@ -97,5 +114,5 @@ DWORD_PTR getModuleHandle(HANDLE processHandle)
             }
         }
     }
-    return baseAddress; 
+    return baseAddress;
 }
