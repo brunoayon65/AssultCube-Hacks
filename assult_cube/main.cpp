@@ -100,11 +100,11 @@ int main()
     // Write function to proc
     // option 1:
     // aloccate memory for the function
-    // PVOID funcAddr = (PVOID)VirtualAllocEx(hProc, NULL, FUNC_LENGTH, MEM_COMMIT, PAGE_READWRITE);
+    PVOID allocMem = (PVOID)VirtualAllocEx(hProc, NULL, FUNC_LENGTH, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
     // option 2:
     // overide function "hit" at address 0x29C20
-    PVOID hitFuncAddr = (PVOID)(baseAddress + 0x29C20);
-    bool isValid = patchBytes(hProc, hitFuncAddr, (PVOID)increaseHealthRealStart, FUNC_LENGTH);
+    //PVOID hitFuncAddr = (PVOID)(baseAddress + 0x29C20);
+    bool isValid = patchBytes(hProc, allocMem, (PVOID)increaseHealthRealStart, FUNC_LENGTH);
     if (!isValid)
     {
         printf("faild patch increaseHealth function in remote process memory");
@@ -125,7 +125,7 @@ int main()
     injectionAddr = (PCHAR)injectionAddr + 1;
     // Switch bytes to call mine function
     SIZE_T addrSize = sizeof(PVOID);
-    isValid = patchBytes(hProc, injectionAddr, &hitFuncAddr, addrSize);
+    isValid = patchBytes(hProc, injectionAddr, &allocMem, addrSize);
     if (!isValid)
     {
         printf("faild patch increaseHealth *Address* in remote process memory");
@@ -134,7 +134,7 @@ int main()
 
     //debug shit
     printf("recoil func address is %p \nInjected command in address: %p \nincreasePlayerHealth address is %p",
-        injectionAddr, hitFuncAddr, pJumpIncreaseHealth);
+        injectionAddr, allocMem, pJumpIncreaseHealth);
     //increaseHealth();
 
     return 1;
@@ -153,15 +153,75 @@ DWORD patchBytes(HANDLE hProc, PVOID patchAddress, PVOID dataAddress, SIZE_T siz
     return 1;
 }
 
-//__declspec(naked) is for nothing to be write other than the function content.
 void __declspec(naked) increaseHealth()
 {
+   // assuming that assultCube game loaded to 0x40000
     _asm
     {
+        push ebx
+        mov ebx, PLAYER_RELATIVE_ADDRESS 
+        add ebx, 0x400000
+        mov ebx, [ebx]
+        add ebx, HEALTH_OFFSET
+        mov eax, [ebx]
+        inc eax
+        mov [ebx], eax
+        pop ebx
         retn 8
     }
-    
 }
+
+//void __declspec(naked) increaseHealth()
+//{
+//    // If you change this function you have to change FUNC_LENGTH
+//    // By using "nm -S --size-sort -t d <objfile>" command.
+//
+//    DWORD playerHealth = 0;
+//    // Get proc Id
+//    DWORD pId = GetCurrentProcessId();
+//    // get proc handle
+//    HANDLE hProc = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pId);
+//    if (!hProc)
+//    {
+//        perror("Open process failed");
+//        printf("error 2");
+//        return;
+//    }
+//
+//    // proc baseaddress after lodaing to the RAM. probably 0x400000.
+//    DWORD baseAddress = (DWORD)GetModuleHandle(NULL);
+//    printf("proc start in this address: %d \n", baseAddress);
+//
+//    // The pointer to player struct is a static address.
+//    // always be in the same relative place to proc base address
+//    DWORD_PTR pPlayer = baseAddress + PLAYER_RELATIVE_ADDRESS;
+//    printf("Player address is: %d \n", pPlayer);
+//
+//    // Get player health location
+//    PVOID pHealth = 0;
+//    int is_valid = ReadProcessMemory(hProc, (LPCVOID)pPlayer, &pHealth, sizeof(DWORD), NULL);
+//    if (!is_valid)
+//    {
+//        printf("error 3");
+//        return;
+//    }
+//    // pHealth now got the address of the player.
+//    pHealth = PVOID(DWORD(pHealth) + HEALTH_OFFSET);
+//
+//    // Get player health.
+//    printf("player health address is: %d \n", (DWORD)pHealth);
+//    is_valid = ReadProcessMemory(hProc, pHealth, &playerHealth, sizeof(int), NULL);
+//    if (!is_valid)
+//    {
+//        printf("error 4");
+//        return;
+//    }
+//    printf("Player current health is %d \n", playerHealth);
+//
+//    DWORD newPlayerHealth = playerHealth + 1;
+//    //Change player health.
+//    WriteProcessMemory(hProc, pHealth, &newPlayerHealth, sizeof(int), NULL);
+//}
 
 DWORD_PTR getProcBaseAdd(HANDLE processHandle)
 {
