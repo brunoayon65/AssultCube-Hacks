@@ -29,7 +29,7 @@ LPCWSTR WINDOW_NAME = L"AssaultCube";
 //Char is the only type who is one byte.
 CHAR BYTE_TO_INJECT = 0xba;
 
-#define PLAYER_RELATIVE_ADDRESS 0x10F4F4
+#define PLAYER_RELATIVE_ADDRESS_POINTER 0x10F4F4
 #define HEALTH_OFFSET 0xF8
 #define FUNC_LENGTH 549 // In bytes.
 #define INJECT_ADDRESS 0x63781
@@ -133,7 +133,7 @@ int main()
     }
 
     //debug shit
-    printf("recoil func address is %p \nInjected command in address: %p \nincreasePlayerHealth address is %p",
+    printf("recoil func address is %p \nInjected incraseHealth in address: %p \nincreasePlayerHealth address on our process is %p",
         injectionAddr, allocMem, pJumpIncreaseHealth);
     //increaseHealth();
 
@@ -159,7 +159,8 @@ void __declspec(naked) increaseHealth()
     _asm
     {
         push ebx
-        mov ebx, PLAYER_RELATIVE_ADDRESS 
+        
+        mov ebx, PLAYER_RELATIVE_ADDRESS_POINTER 
         add ebx, 0x400000
         mov ebx, [ebx]
         add ebx, HEALTH_OFFSET
@@ -171,7 +172,7 @@ void __declspec(naked) increaseHealth()
     }
 }
 
-//void __declspec(naked) increaseHealth()
+//void DECLSPEC_SAFEBUFFERS increaseHealth()
 //{
 //    // If you change this function you have to change FUNC_LENGTH
 //    // By using "nm -S --size-sort -t d <objfile>" command.
