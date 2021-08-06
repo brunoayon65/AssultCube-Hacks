@@ -1,4 +1,3 @@
-// This program doesn't work.
 
 /*
     This program going to change this two lines who suppose to move edx reciol func address
@@ -22,8 +21,9 @@
 
 #include <Windows.h>
 #include "stdio.h"
-#include <Psapi.h>
-#include <processthreadsapi.h>
+#include "proc.h"
+#include "mem.h"
+
 
 LPCWSTR WINDOW_NAME = L"AssaultCube";
 //Char is the only type who is one byte.
@@ -43,14 +43,12 @@ DWORD patchBytes(HANDLE, PVOID, PVOID, SIZE_T);
 
 int main()
 {
-    DWORD procId = 0;
-    HWND hWnd = FindWindow(0, WINDOW_NAME);
-    if (hWnd == NULL)
+    DWORD procId = getProcId(WINDOW_NAME);
+    if (procId == 0)
     {
-        printf("error finding game's window");
+        printf("error getting process Id by his window");
         return 0;
     }
-    GetWindowThreadProcessId(hWnd, &procId);
 
     // get proc handle
     HANDLE hProc = OpenProcess(PROCESS_ALL_ACCESS, FALSE, procId);
@@ -140,19 +138,6 @@ int main()
     return 1;
 }
 
-
-DWORD patchBytes(HANDLE hProc, PVOID patchAddress, PVOID dataAddress, SIZE_T size)
-{
-    DWORD oldProtect;
-    if (!VirtualProtectEx(hProc, patchAddress, size, PAGE_EXECUTE_READWRITE, &oldProtect)) // Return 0 on fail
-        return 0;
-    if (!WriteProcessMemory(hProc, patchAddress, dataAddress, size, NULL)) // Return 0 on fail
-        return 0;
-    if (!VirtualProtectEx(hProc, patchAddress, size, oldProtect, &oldProtect)) // Return 0 on fail
-        return 0;
-    return 1;
-}
-
 void __declspec(naked) increaseHealth()
 {
    // assuming that assultCube game loaded to 0x40000
@@ -223,36 +208,3 @@ void __declspec(naked) increaseHealth()
 //    //Change player health.
 //    WriteProcessMemory(hProc, pHealth, &newPlayerHealth, sizeof(int), NULL);
 //}
-
-DWORD_PTR getProcBaseAdd(HANDLE processHandle)
-{
-    // TODO: undresatnd code.
-    DWORD_PTR   baseAddress = 0;
-    HMODULE* moduleArray;
-    LPBYTE      moduleArrayBytes;
-    DWORD       bytesRequired;
-
-    if (EnumProcessModules(processHandle, NULL, 0, &bytesRequired))
-    {
-        if (bytesRequired)
-        {
-            moduleArrayBytes = (LPBYTE)LocalAlloc(LPTR, bytesRequired);
-
-            if (moduleArrayBytes)
-            {
-                unsigned int moduleCount;
-
-                moduleCount = bytesRequired / sizeof(HMODULE);
-                moduleArray = (HMODULE*)moduleArrayBytes;
-
-                if (EnumProcessModules(processHandle, moduleArray, bytesRequired, &bytesRequired))
-                {
-                    baseAddress = (DWORD_PTR)moduleArray[0];
-                }
-
-                LocalFree(moduleArrayBytes);
-            }
-        }
-    }
-    return baseAddress;
-}
