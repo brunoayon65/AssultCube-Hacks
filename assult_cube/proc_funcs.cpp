@@ -1,6 +1,7 @@
 #include <Windows.h>
 #include <processthreadsapi.h>
 #include <Psapi.h>
+#include "proc.h"
 
 
 DWORD getProcId(LPCWSTR WINDOW_NAME)

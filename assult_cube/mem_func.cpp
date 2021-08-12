@@ -1,4 +1,5 @@
 #include <Windows.h>
+#include "proc.h"
 
 DWORD patchBytes(HANDLE hProc, PVOID patchAddress, PVOID dataAddress, SIZE_T size)
 {
