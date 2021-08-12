@@ -1,5 +1,5 @@
 #pragma once
 #include <Windows.h>
 
-DWORD_PTR getProcBaseAdd(HANDLE);
-DWORD getProcId(LPCWSTR);
+DWORD_PTR get_process_base_address(HANDLE);
+DWORD get_process_id(LPCWSTR);

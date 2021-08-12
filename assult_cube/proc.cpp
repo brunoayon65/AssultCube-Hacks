@@ -4,19 +4,19 @@
 #include "proc.h"
 
 
-DWORD getProcId(LPCWSTR WINDOW_NAME)
+DWORD get_process_id(LPCWSTR WINDOW_NAME)
 {
-    DWORD procId = 0;
-    HWND hWnd = FindWindow(0, WINDOW_NAME);
-    if (hWnd == NULL)
+    DWORD process_id = 0;
+    HWND window_handle = FindWindow(0, WINDOW_NAME);
+    if (window_handle == NULL)
     {
         return 0;
     }
-    GetWindowThreadProcessId(hWnd, &procId);
-    return procId;
+    GetWindowThreadProcessId(window_handle, &process_id);
+    return process_id;
 }
 
-DWORD_PTR getProcBaseAdd(HANDLE processHandle)
+DWORD_PTR get_process_base_address(HANDLE processHandle)
 {
     // TODO: undresatnd code.
     DWORD_PTR   baseAddress = 0;
