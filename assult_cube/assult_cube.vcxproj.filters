@@ -17,16 +17,16 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="dllmain.cpp">
+    <ClCompile Include="dllmain.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="injectDll.cpp">
+    <ClCompile Include="injectDll.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="mem.cpp">
+    <ClCompile Include="mem.c">
       <Filter>mem</Filter>
     </ClCompile>
-    <ClCompile Include="proc.cpp">
+    <ClCompile Include="proc.c">
       <Filter>proc</Filter>
     </ClCompile>
   </ItemGroup>

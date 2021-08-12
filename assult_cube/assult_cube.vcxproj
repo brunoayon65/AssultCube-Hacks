@@ -19,10 +19,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="dllmain.cpp" />
-    <ClCompile Include="injectDll.cpp" />
-    <ClCompile Include="mem.cpp" />
-    <ClCompile Include="proc.cpp" />
+    <ClCompile Include="dllmain.c" />
+    <ClCompile Include="injectDll.c" />
+    <ClCompile Include="mem.c" />
+    <ClCompile Include="proc.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="mem.h" />
