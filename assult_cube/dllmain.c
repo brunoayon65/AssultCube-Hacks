@@ -27,20 +27,25 @@ LPCWSTR WINDOW_NAME = L"AssaultCube";
 // For cancel reciol hack.
 CHAR BYTE_TO_INJECT = 0xba;
 
-void show_error(const char *);
+void msg_box(const char *);
 void increase_player_health();
 VOID mainHack();
-
+BOOL cancel_reciol(HANDLE, DWORD);
 
 VOID mainHack()
 {
+    //msg_box("to start hack press ok");
     PVOID old_bytes = malloc(BYTES_COUNT);
     BOOL is_hacked = FALSE;
     
     int proc_id = get_process_id(WINDOW_NAME);
     HANDLE process_handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, proc_id);
-    DWORD module_base_address = get_process_base_address(process_handle);
-    PVOID inject_address = (PVOID)(module_base_address + INJECT_ADDRESS_MAP_HACK);
+    DWORD process_base_address = get_process_base_address(process_handle);
+    
+    if (!cancel_reciol(process_handle, process_base_address))
+        msg_box("error canceling reciol");
+
+    PVOID inject_address = (PVOID)(process_base_address + INJECT_ADDRESS_MAP_HACK);
     
     DWORD process_status = 1;
     while (GetExitCodeProcess(process_handle, &process_status) && process_status == STILL_ACTIVE)
@@ -72,7 +77,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)mainHack, NULL, 0, NULL);
         if (hThread == NULL)
         {
-            show_error("Error oppening hack thread");
+            msg_box("Error oppening hack thread");
         }
     }
     case DLL_THREAD_ATTACH:
@@ -104,40 +109,6 @@ BOOL cancel_reciol(HANDLE process_handle, DWORD process_base_address)
     ba 00 00 40 00
     */
 
-    // Change increase health premitions to readable.
-    // Open my process.
-    DWORD my_process_id = GetCurrentProcessId();
-    HANDLE my_process_handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, my_process_id);
-    if (!my_process_handle)
-    {
-        show_error("Open program process failed");
-        return FALSE;
-    }
-    DWORD old_protect;
-
-    // The increaseHealth function start with jump to funciton.
-    // Find jump to func instruction address.
-    PVOID jump_increase_health_pointer = ((PCHAR)increase_player_health + 1);
-    printf("address of jump instruction plus one: %p \naddress of incraseHealth function: %p\n",
-        (PVOID)(jump_increase_health_pointer), *(PVOID*)(jump_increase_health_pointer));
-
-    // find what is the value of the jump function.
-    // The jump value is relative to the jump instruction address.
-    // +5 because we add the bytes of the jump instruction.
-    DWORD increaseHealthRealStart = increase_player_health;
-    increaseHealthRealStart += *((DWORD_PTR*)jump_increase_health_pointer) + 5;
-
-    printf("increaseHealth real address is %p \nFirst byte of function is: %hhx\n", increaseHealthRealStart, *(PCHAR)(increaseHealthRealStart));
-    // Now we got increaseHealth function address.
-
-
-    if (!VirtualProtectEx(my_process_handle, (PVOID)increaseHealthRealStart, FUNC_LENGTH, PAGE_EXECUTE_READWRITE, &old_protect))
-    {
-        show_error("error change increase health premitions");
-        return FALSE;
-    }
-    //printf("%d \n", oldProtect);
-
     // Write function to proc
     // option 1:
     // aloccate memory for the function
@@ -146,9 +117,9 @@ BOOL cancel_reciol(HANDLE process_handle, DWORD process_base_address)
     // overide function "hit" at address 0x29C20
     //PVOID hitFuncAddr = (PVOID)(baseAddress + 0x29C20);
     
-    if (!patch_bytes(process_handle, allocate_memory, (PVOID)increaseHealthRealStart, FUNC_LENGTH))
+    if (!patch_bytes(process_handle, allocate_memory, (PVOID)increase_player_health, FUNC_LENGTH))
     {
-        show_error("faild patch increaseHealth function in remote process memory");
+        msg_box("faild patch increaseHealth function in remote process memory");
         return FALSE;
     }
 
@@ -158,7 +129,7 @@ BOOL cancel_reciol(HANDLE process_handle, DWORD process_base_address)
     // Change call reciol to call inject function
     if (!patch_bytes(process_handle, injection_address, &BYTE_TO_INJECT, sizeof(char)))
     {
-        show_error("faild patch mov dx byte in remote process memory");
+        msg_box("faild patch mov dx byte in remote process memory");
         return FALSE;
     }
     //This way injectionAddr increase only by one.
@@ -166,13 +137,9 @@ BOOL cancel_reciol(HANDLE process_handle, DWORD process_base_address)
     // Switch bytes to call mine function
     if (!patch_bytes(process_handle, injection_address, &allocate_memory, sizeof(PVOID)))
     {
-        show_error("faild patch increaseHealth *Address* in remote process memory");
+        msg_box("faild patch increaseHealth *Address* in remote process memory");
         return FALSE;
     }
-
-    //debug shit
-    printf("recoil func address is %p \nInjected incraseHealth in address: %p \nincreasePlayerHealth address on our process is %p",
-        injection_address, allocate_memory, jump_increase_health_pointer);
 
     return TRUE;
 }
@@ -198,7 +165,7 @@ void __declspec(naked) increase_player_health()
     }
 }
 
-void show_error(const char* txt)
+void msg_box(const char* txt)
 {
     MessageBoxA(NULL, txt, NULL, MB_OK);
 }
