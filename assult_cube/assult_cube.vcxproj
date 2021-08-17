@@ -24,12 +24,14 @@
     <ClCompile Include="injectDll.c" />
     <ClCompile Include="mem.c" />
     <ClCompile Include="proc.c" />
+    <ClCompile Include="TD_point.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="angels.h" />
     <ClInclude Include="game_structs.h" />
     <ClInclude Include="mem.h" />
     <ClInclude Include="proc.h" />
+    <ClInclude Include="TD_point.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

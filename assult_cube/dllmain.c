@@ -4,8 +4,9 @@
 #include "stdio.h"
 #include "proc.h"
 #include "mem.h"
-#include "game_structs.h";
+#include "game_structs.h"
 #include "angels.h"    
+#include "TD_point.h"
 
 // This is a relative address to the process base pointer.
 // From there the program read the address of the reciol funciton.
@@ -34,14 +35,37 @@ CHAR BYTE_TO_INJECT = 0xba;
 
 void msg_box(const char *);
 void increase_player_health();
-VOID mainHack();
+VOID main_hack();
 BOOL cancel_reciol(HANDLE, DWORD);
 player_t* find_closest_target(player_t**, player_t*, DWORD);
 
-VOID mainHack()
+BOOL APIENTRY DllMain(HMODULE hModule,
+    DWORD  ul_reason_for_call,
+    LPVOID lpReserved
+)
+{
+    switch (ul_reason_for_call)
+    {
+    case DLL_PROCESS_ATTACH:
+    {
+        HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)main_hack, NULL, 0, NULL);
+        if (hThread == NULL)
+        {
+            msg_box("Error oppening hack thread");
+        }
+    }
+    case DLL_THREAD_ATTACH:
+    case DLL_THREAD_DETACH:
+    case DLL_PROCESS_DETACH:
+        break;
+    }
+    return TRUE;
+}
+
+VOID main_hack()
 {
     //msg_box("to start hack press ok");
-    PVOID old_bytes = malloc(BYTES_COUNT);
+    
     BOOL is_map_hacked = FALSE;
     BOOL aimbot_status = FALSE;
     
@@ -56,25 +80,29 @@ VOID mainHack()
     if (!cancel_reciol(process_handle, process_base_address))
         msg_box("error canceling reciol");
 
-    player_pointer->pointer_to_current_weapon->data->damage = WEAPON_NEW_STRENGTH;
+    //in this var will be stored the original code
+    //of filtiring the enemy players and not showing them on the map.
+    PVOID map_jnz_bytes = malloc(BYTES_COUNT);
+
     PVOID inject_address = (PVOID)(process_base_address + INJECT_ADDRESS_MAP_HACK);
-    DWORD process_status = 1;
+    DWORD process_status = STILL_ACTIVE;
     player_t* target;
 
     while (GetExitCodeProcess(process_handle, &process_status) && process_status == STILL_ACTIVE)
     {
         player_t* (* get_player_ot_target)() = process_base_address + GET_PLAYER_ON_TARGET_OFFSET;
-        //see enemys on map
+
+        //& 1 because if the user clicked on the key the function return 1 and this is what we are looking for
         if (GetAsyncKeyState(VK_NUMPAD9) & 1)
         {
-
+            //see enemys on map
             if (!is_map_hacked)
             {
-                replace_code_with_nop(process_handle, inject_address, old_bytes, BYTES_COUNT);
+                replace_code_with_nop(process_handle, inject_address, map_jnz_bytes, BYTES_COUNT);
             }
             else
             {
-                patch_bytes(process_handle, inject_address, old_bytes, BYTES_COUNT);
+                patch_bytes(process_handle, inject_address, map_jnz_bytes, BYTES_COUNT);
             }
             is_map_hacked = !is_map_hacked;
         }
@@ -91,9 +119,7 @@ VOID mainHack()
                 // didn't find enemy player.
                 continue;
 
-            player_pointer->x_value = target->x_value;
-            player_pointer->y_value = target->y_value;
-            player_pointer->z_value = target->z_value;
+            switch_points(&(player_pointer->cords), &(target->cords));
         }
 
         //aimbot
@@ -107,6 +133,7 @@ VOID mainHack()
             number_of_players = *(DWORD*)(NUMBER_OF_PLAYERS_RELATIVE_ADDRESS + process_base_address);
             if (!number_of_players)
             {
+                // if we're the only one in the game aimbot shouldn't work.
                 continue;
             }
             target = find_closest_target(other_players, player_pointer, number_of_players);
@@ -140,32 +167,12 @@ VOID mainHack()
         {
             *(player_pointer->pointer_to_current_weapon->ammo) = 80;
         }
-    }
-}
 
-BOOL APIENTRY DllMain( HMODULE hModule,
-                       DWORD  ul_reason_for_call,
-                       LPVOID lpReserved
-                     )
-{
-    switch (ul_reason_for_call)
-    {
-    case DLL_PROCESS_ATTACH:
-    {
-        HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)mainHack, NULL, 0, NULL);
-        if (hThread == NULL)
-        {
-            msg_box("Error oppening hack thread");
-        }
+        player_pointer->pointer_to_current_weapon->data->damage = WEAPON_NEW_STRENGTH;
     }
-    case DLL_THREAD_ATTACH:
-    case DLL_THREAD_DETACH:
-    case DLL_PROCESS_DETACH:
-        break;
-    }
-    return TRUE;
-}
 
+    free(map_jnz_bytes);
+}
 
 player_t* find_closest_target(player_t** other_players,player_t* user_player, DWORD number_of_players)
 {
@@ -182,7 +189,7 @@ player_t* find_closest_target(player_t** other_players,player_t* user_player, DW
         if (!current_player || current_player->team == user_player->team || current_player->health > 100 || current_player->health <= 0)
             continue;
 
-        current_distance = get_distance(user_player, current_player);
+        current_distance = get_distance(&(user_player->cords), &(current_player->cords));
 
         if ( current_distance<min_distance)
         {
@@ -229,7 +236,7 @@ BOOL cancel_reciol(HANDLE process_handle, DWORD process_base_address)
         return FALSE;
     }
 
-    // Find call reciol func
+    // Find call reciol address
     PVOID injection_address = (PVOID)(process_base_address + INJECT_ADDRESS_NO_RECIOL);
 
     // Change call reciol to call inject function

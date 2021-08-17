@@ -1,5 +1,5 @@
 #pragma once
-
+#include "TD_point.h"
 
 struct player_struct;
 struct weapon_struct;
@@ -8,19 +8,14 @@ typedef unsigned char _BYTE;
 
 typedef struct player_struct player_t;
 typedef struct weapon_struct weapon_t;
-typedef struct threeD_cords TD_t;
 typedef struct weapon_data weapon_data_t;
 
 struct player_struct
 {
     char padding[4];
-    float head_x_value;
-    float head_y_value;
-    float head_z_value;
+    TD_t head_cords;
     char padding2[36];
-    float x_value;
-    float y_value;
-    float z_value;
+    TD_t cords;
     float yaw_angel;
     float pitch_angel;
     _BYTE gap48[176];
@@ -52,11 +47,4 @@ struct weapon_data
 {
     _BYTE gap0[268];
     int damage;
-};
-
-struct threeD_cords
-{
-    float x;
-    float y;
-    float z;
 };

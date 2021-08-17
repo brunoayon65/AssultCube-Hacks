@@ -21,6 +21,9 @@
     <Filter Include="game_structs">
       <UniqueIdentifier>{fb5d0b0d-e932-483c-a1cc-665311f5baa1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="TD_point">
+      <UniqueIdentifier>{76954b33-4fe4-4461-8288-ddd71230b065}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.c">
@@ -38,6 +41,9 @@
     <ClCompile Include="angels.c">
       <Filter>angels</Filter>
     </ClCompile>
+    <ClCompile Include="TD_point.c">
+      <Filter>TD_point</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="mem.h">
@@ -51,6 +57,9 @@
     </ClInclude>
     <ClInclude Include="angels.h">
       <Filter>angels</Filter>
+    </ClInclude>
+    <ClInclude Include="TD_point.h">
+      <Filter>TD_point</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
