@@ -1,5 +1,6 @@
 #include "math.h"
 #include "game_structs.h"
+#include "angels.h"
 
 #define PI 3.142857
 
@@ -16,17 +17,14 @@ float get_yaw_angel(player_t* user_player, player_t* enemy_player)
 	return radian_to_degree(-atan2f(x_dif, y_dif)) + 180;
 }
 
+
 float get_pitch_angel(player_t* user_player, player_t* enemy_player)
 {
 	// pitch angel is up and down 
 	// pitch value is between -90 to 90
-	float x_dif = enemy_player->x_value - user_player->x_value;
-	float y_dif = enemy_player->y_value - user_player->y_value;
-	float ground_distance =(x_dif * x_dif) + (y_dif * y_dif); // distance form.
-	ground_distance = sqrtf(ground_distance);
-	
+	float distance = get_distance(user_player, enemy_player);
 	float z_dif = enemy_player->z_value - user_player->z_value;
-	float pitch = radian_to_degree(atan2f(z_dif, ground_distance));
+	float pitch = radian_to_degree(asinf(z_dif/distance));
 	return pitch;
 }
 

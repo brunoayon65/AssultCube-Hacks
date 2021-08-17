@@ -9,6 +9,7 @@ typedef unsigned char _BYTE;
 typedef struct player_struct player_t;
 typedef struct weapon_struct weapon_t;
 typedef struct threeD_cords TD_t;
+typedef struct weapon_data weapon_data_t;
 
 struct player_struct
 {
@@ -42,9 +43,15 @@ struct weapon_struct
     _BYTE gap0[4];
     int type;
     player_t* owner;
-    int* type_and_data;
+    weapon_data_t* data;
     int* mag_ammo;
     int* ammo;
+};
+
+struct weapon_data
+{
+    _BYTE gap0[268];
+    int damage;
 };
 
 struct threeD_cords

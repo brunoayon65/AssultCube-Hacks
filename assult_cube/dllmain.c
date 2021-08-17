@@ -13,10 +13,12 @@
 #define OTHER_PLAYERS_ARRAY_RELATIVE_ADDRESS 0x10F4F8
 #define NUMBER_OF_PLAYERS_RELATIVE_ADDRESS 0x10F500
 #define HEALTH_OFFSET 0xF8
+#define GET_PLAYER_ON_TARGET_OFFSET  0x607C0
 
 //TODO: change to real function length.
 #define FUNC_LENGTH 549 // In bytes.
 #define INJECT_ADDRESS_NO_RECIOL 0x63781
+#define WEAPON_NEW_STRENGTH 50
 
 // inject to map hack:
 // jnz bytes:
@@ -54,12 +56,14 @@ VOID mainHack()
     if (!cancel_reciol(process_handle, process_base_address))
         msg_box("error canceling reciol");
 
+    player_pointer->pointer_to_current_weapon->data->damage = WEAPON_NEW_STRENGTH;
     PVOID inject_address = (PVOID)(process_base_address + INJECT_ADDRESS_MAP_HACK);
     DWORD process_status = 1;
     player_t* target;
 
     while (GetExitCodeProcess(process_handle, &process_status) && process_status == STILL_ACTIVE)
     {
+        player_t* (* get_player_ot_target)() = process_base_address + GET_PLAYER_ON_TARGET_OFFSET;
         //see enemys on map
         if (GetAsyncKeyState(VK_NUMPAD9) & 1)
         {
@@ -90,7 +94,6 @@ VOID mainHack()
             player_pointer->x_value = target->x_value;
             player_pointer->y_value = target->y_value;
             player_pointer->z_value = target->z_value;
-            
         }
 
         //aimbot
@@ -111,6 +114,15 @@ VOID mainHack()
                 continue;
             player_pointer->yaw_angel = get_yaw_angel(player_pointer, target);
             player_pointer->pitch_angel = get_pitch_angel(player_pointer, target);
+
+            if (target == get_player_ot_target())
+            {
+                player_pointer->is_shooting = TRUE;
+            }
+            else
+            {
+                player_pointer->is_shooting = FALSE;
+            }
         }
 
         //changing values hack
@@ -167,7 +179,7 @@ player_t* find_closest_target(player_t** other_players,player_t* user_player, DW
         current_player = *((player_t**)(*other_players) + counter);
         counter++;
 
-        if (!current_player || current_player->team == user_player->team)
+        if (!current_player || current_player->team == user_player->team || current_player->health > 100 || current_player->health <= 0)
             continue;
 
         current_distance = get_distance(user_player, current_player);
