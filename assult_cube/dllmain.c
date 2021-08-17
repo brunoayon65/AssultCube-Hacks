@@ -1,53 +1,11 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include <Windows.h>
+#include <stdlib.h>
 #include "stdio.h"
 #include "proc.h"
 #include "mem.h"
-#include <stdlib.h>
-
-typedef unsigned char _BYTE;
-
-
-struct player_struct
-{
-    char padding[4];
-    int head_x_value;
-    int head_y_value;
-    int head_z_value;
-    char padding2[36];
-    int x_value;
-    int y_value;
-    int z_value;
-    int yaw_angel;
-    int pitch_angel;
-    _BYTE gap48[176];
-    int health;
-    int shield;
-    _BYTE gap100[292];
-    char is_shooting;
-    char name[10];
-    _BYTE gap22F[253];
-    int team;
-    _BYTE gap330[68];
-    struct weapon_struct* pointer_to_current_weapon;
-    _BYTE gap378[73];
-    char field_3D;
-};
-
-
-struct weapon_struct
-{
-    _BYTE gap0[4];
-    int type;
-    struct player_struct* owner;
-    int* type_and_data;
-    int* mag_ammo;
-    int* ammo;
-};
-
-
-typedef struct player_struct player_t;
-typedef struct weapon_struct ammo;
+#include "game_structs.h";
+#include "angels.h"    
 
 // This is a relative address to the process base pointer.
 // From there the program read the address of the reciol funciton.
@@ -76,12 +34,14 @@ void msg_box(const char *);
 void increase_player_health();
 VOID mainHack();
 BOOL cancel_reciol(HANDLE, DWORD);
+player_t* find_closest_target(player_t**, player_t*, DWORD);
 
 VOID mainHack()
 {
     //msg_box("to start hack press ok");
     PVOID old_bytes = malloc(BYTES_COUNT);
-    BOOL is_hacked = FALSE;
+    BOOL is_map_hacked = FALSE;
+    BOOL aimbot_status = FALSE;
     
     int proc_id = get_process_id(WINDOW_NAME);
     HANDLE process_handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, proc_id);
@@ -96,14 +56,15 @@ VOID mainHack()
 
     PVOID inject_address = (PVOID)(process_base_address + INJECT_ADDRESS_MAP_HACK);
     DWORD process_status = 1;
-    player_t* enemy_player;
-    DWORD counter = 1;
+    player_t* target;
+
     while (GetExitCodeProcess(process_handle, &process_status) && process_status == STILL_ACTIVE)
     {
+        //see enemys on map
         if (GetAsyncKeyState(VK_NUMPAD9) & 1)
         {
 
-            if (!is_hacked)
+            if (!is_map_hacked)
             {
                 replace_code_with_nop(process_handle, inject_address, old_bytes, BYTES_COUNT);
             }
@@ -111,33 +72,48 @@ VOID mainHack()
             {
                 patch_bytes(process_handle, inject_address, old_bytes, BYTES_COUNT);
             }
-            is_hacked = !is_hacked;
+            is_map_hacked = !is_map_hacked;
         }
         
+        //teleport nearby enemy
         if (GetAsyncKeyState(VK_NUMPAD0) & 1)
         {
-            number_of_players = *(DWORD*)(NUMBER_OF_PLAYERS_RELATIVE_ADDRESS + process_base_address);
+            DWORD number_of_players = *(DWORD*)(NUMBER_OF_PLAYERS_RELATIVE_ADDRESS + process_base_address);
             if (number_of_players == 0)
                 continue;
-            do
-            {
-                enemy_player = *((player_t**)(*other_players)+counter);
-                if (enemy_player && enemy_player->team != player_pointer->team)
-                    break;
-                counter++;
-            } while (counter < number_of_players);
             
-            if (!enemy_player)
+            target = find_closest_target(other_players, player_pointer, number_of_players);
+            if (target == NULL)
                 // didn't find enemy player.
                 continue;
 
-            player_pointer->x_value = enemy_player->x_value + 5;
-            player_pointer->y_value = enemy_player->y_value;
-            player_pointer->z_value = enemy_player->z_value;
+            player_pointer->x_value = target->x_value;
+            player_pointer->y_value = target->y_value;
+            player_pointer->z_value = target->z_value;
             
         }
 
+        //aimbot
+        if (GetAsyncKeyState(VK_NUMPAD8) & 1)
+        {            
+            aimbot_status = !aimbot_status;
+        }
 
+        if (aimbot_status)
+        {
+            number_of_players = *(DWORD*)(NUMBER_OF_PLAYERS_RELATIVE_ADDRESS + process_base_address);
+            if (!number_of_players)
+            {
+                continue;
+            }
+            target = find_closest_target(other_players, player_pointer, number_of_players);
+            if (target == NULL)
+                continue;
+            player_pointer->yaw_angel = get_yaw_angel(player_pointer, target);
+            player_pointer->pitch_angel = get_pitch_angel(player_pointer, target);
+        }
+
+        //changing values hack
         if (player_pointer->health < 200)
         {
             player_pointer->health = 234;
@@ -150,7 +126,7 @@ VOID mainHack()
 
         if (*(player_pointer->pointer_to_current_weapon->ammo) < 50)
         {
-            *(player_pointer->pointer_to_current_weapon->ammo) = 50;
+            *(player_pointer->pointer_to_current_weapon->ammo) = 80;
         }
     }
 }
@@ -176,6 +152,34 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         break;
     }
     return TRUE;
+}
+
+
+player_t* find_closest_target(player_t** other_players,player_t* user_player, DWORD number_of_players)
+{
+    player_t* current_player;
+    player_t* best_target = NULL;
+    float min_distance = 100000;
+    float current_distance;
+    DWORD counter = 1;
+    do
+    {
+        current_player = *((player_t**)(*other_players) + counter);
+        counter++;
+
+        if (!current_player || current_player->team == user_player->team)
+            continue;
+
+        current_distance = get_distance(user_player, current_player);
+
+        if ( current_distance<min_distance)
+        {
+            best_target = current_player;
+            min_distance = current_distance;
+        }
+        
+    } while (counter < number_of_players);
+    return best_target;
 }
 
 

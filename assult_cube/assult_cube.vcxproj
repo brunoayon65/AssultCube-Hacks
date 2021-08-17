@@ -19,12 +19,15 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="angels.c" />
     <ClCompile Include="dllmain.c" />
     <ClCompile Include="injectDll.c" />
     <ClCompile Include="mem.c" />
     <ClCompile Include="proc.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="angels.h" />
+    <ClInclude Include="game_structs.h" />
     <ClInclude Include="mem.h" />
     <ClInclude Include="proc.h" />
   </ItemGroup>

@@ -15,6 +15,12 @@
     <Filter Include="mem">
       <UniqueIdentifier>{c28ff9cf-e8cb-43d3-bc5e-1709828134f8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="angels">
+      <UniqueIdentifier>{6639b257-312a-4d7e-badc-e37ad26debbb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="game_structs">
+      <UniqueIdentifier>{fb5d0b0d-e932-483c-a1cc-665311f5baa1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.c">
@@ -29,6 +35,9 @@
     <ClCompile Include="proc.c">
       <Filter>proc</Filter>
     </ClCompile>
+    <ClCompile Include="angels.c">
+      <Filter>angels</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="mem.h">
@@ -36,6 +45,12 @@
     </ClInclude>
     <ClInclude Include="proc.h">
       <Filter>proc</Filter>
+    </ClInclude>
+    <ClInclude Include="game_structs.h">
+      <Filter>game_structs</Filter>
+    </ClInclude>
+    <ClInclude Include="angels.h">
+      <Filter>angels</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
