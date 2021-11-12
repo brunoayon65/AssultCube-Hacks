@@ -12,6 +12,10 @@ typedef struct weapon_data weapon_data_t;
 
 struct player_struct
 {
+    /*
+        player struct in the game.
+        padding or gap is for struct members that aren't important.
+    */
     char padding[4];
     TD_t head_cords;
     char padding2[36];

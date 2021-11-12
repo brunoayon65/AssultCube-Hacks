@@ -13,9 +13,12 @@ float get_yaw_angel(player_t* user_player, player_t* enemy_player)
 	// Yaw angel is left right angel
 	// Yaw value is between 0 to 360
 	float x_dif = enemy_player->cords.x - user_player->cords.x;
-	float y_dif = enemy_player->cords.y - user_player->cords.y;
+	float y_dif = (-enemy_player->cords.y) - (-user_player->cords.y);
+	
+	if(x_dif > 0)
+		return radian_to_degree(atan2f(x_dif, y_dif));
 
-	return radian_to_degree(-atan2f(x_dif, y_dif)) + 180;
+	return 360 + radian_to_degree(atan2f(x_dif, y_dif));
 }
 
 
