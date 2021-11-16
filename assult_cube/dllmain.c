@@ -120,7 +120,7 @@ VOID main_hack()
     {
 
         //& 1 because if the user clicked on the key the function return 1 and this is what we are looking for
-        if (GetAsyncKeyState(VK_NUMPAD3) & 1)
+        if (GetAsyncKeyState('2') & 1)
         {
             //see enemys on map
             if (!is_map_hacked)
@@ -135,7 +135,7 @@ VOID main_hack()
         }
         
         //teleport nearby enemy
-        if (GetAsyncKeyState(VK_NUMPAD2) & 1)
+        if (GetAsyncKeyState('0') & 1)
         {
             DWORD number_of_players = *(DWORD*)(NUMBER_OF_PLAYERS_RELATIVE_ADDRESS + process_base_address);
             if (number_of_players == 0)
@@ -150,7 +150,7 @@ VOID main_hack()
         }
 
         //aimbot
-        if (GetAsyncKeyState(VK_NUMPAD1) & 1)
+        if (GetAsyncKeyState('1') & 1)
         { 
             if (!aimbot_status)
             {

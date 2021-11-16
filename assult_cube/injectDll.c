@@ -1,13 +1,10 @@
-// Barak Gonen 2019
-// Skeleton code - inject DLL to a running process
-// exercise number 8.1
+
 #include <Windows.h>
 #include "stdio.h"
 #include <stdlib.h>
 #include "proc.h"
 
 // On succes the program should open a message box on the remote procces.
-// You should open procces explorer and choose proc Id
 PCSTR PATH_TO_DLL = "C:\\Users\\User\\source\\repos\\assult_cube\\Release\\assult_cube.dll";
 #define MAX_PATH_SIZE (1000)
 
