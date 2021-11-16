@@ -3,9 +3,9 @@
 The hacks that I made:
 * aimbot
 * values hacks
-	1. keep your health up to 200
+	1. keep your health up to 234
 	2. keep your ammo up to 50
-	3. keep your shield up to 150
+	3. keep your shield up to 123
 * show enemys players on map
 * every time you get hitten, your health increseing by one
 * teleport and switch places with closest enemy players
