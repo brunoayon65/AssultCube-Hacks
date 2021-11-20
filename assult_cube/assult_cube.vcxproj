@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="aimbot.c" />
     <ClCompile Include="angels.c" />
     <ClCompile Include="dllmain.c" />
     <ClCompile Include="injectDll.c" />
@@ -28,6 +29,7 @@
     <ClCompile Include="TD_point.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="aimbot.h" />
     <ClInclude Include="angels.h" />
     <ClInclude Include="game_structs.h" />
     <ClInclude Include="mem.h" />

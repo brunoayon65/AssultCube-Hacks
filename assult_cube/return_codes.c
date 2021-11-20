@@ -50,6 +50,10 @@ VOID print_error(return_codes_t error)
 		snprintf(msg, MAX_MESSAGE_LENGTH, "Error in changing memory permissions in remote process (%d)", GetLastError());
 		break;
 
+	case RC__TERMINATE_THREAD_FAILED:
+		snprintf(msg, MAX_MESSAGE_LENGTH, "Error in terminating thread (%d)", GetLastError());
+		break;
+
 	case RC__SUCCESS:
 		return;
 
@@ -57,5 +61,5 @@ VOID print_error(return_codes_t error)
 		snprintf(msg, MAX_MESSAGE_LENGTH, "Error occurred");
 		break;
 	}
-	MessageBoxA(NULL, msg, NULL, MB_OK);
+	MessageBoxA(NULL, msg, "ERROR", MB_OK);
 }

@@ -15,9 +15,6 @@
     <Filter Include="mem">
       <UniqueIdentifier>{c28ff9cf-e8cb-43d3-bc5e-1709828134f8}</UniqueIdentifier>
     </Filter>
-    <Filter Include="angels">
-      <UniqueIdentifier>{6639b257-312a-4d7e-badc-e37ad26debbb}</UniqueIdentifier>
-    </Filter>
     <Filter Include="game_structs">
       <UniqueIdentifier>{fb5d0b0d-e932-483c-a1cc-665311f5baa1}</UniqueIdentifier>
     </Filter>
@@ -26,6 +23,9 @@
     </Filter>
     <Filter Include="Return Codes">
       <UniqueIdentifier>{113fcad2-63da-491c-a84d-79bdaa2264c8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="aimbot">
+      <UniqueIdentifier>{6639b257-312a-4d7e-badc-e37ad26debbb}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -42,13 +42,16 @@
       <Filter>proc</Filter>
     </ClCompile>
     <ClCompile Include="angels.c">
-      <Filter>angels</Filter>
+      <Filter>aimbot</Filter>
     </ClCompile>
     <ClCompile Include="TD_point.c">
       <Filter>TD_point</Filter>
     </ClCompile>
     <ClCompile Include="return_codes.c">
       <Filter>Return Codes</Filter>
+    </ClCompile>
+    <ClCompile Include="aimbot.c">
+      <Filter>aimbot</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -62,13 +65,16 @@
       <Filter>game_structs</Filter>
     </ClInclude>
     <ClInclude Include="angels.h">
-      <Filter>angels</Filter>
+      <Filter>aimbot</Filter>
     </ClInclude>
     <ClInclude Include="TD_point.h">
       <Filter>TD_point</Filter>
     </ClInclude>
     <ClInclude Include="return_codes.h">
       <Filter>Return Codes</Filter>
+    </ClInclude>
+    <ClInclude Include="aimbot.h">
+      <Filter>aimbot</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

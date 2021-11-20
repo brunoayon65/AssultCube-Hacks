@@ -8,19 +8,17 @@
 #include "angels.h"    
 #include "TD_point.h"
 #include "return_codes.h"
+#include "aimbot.h"
 
 // all of this address are RVA - relative virtual address to the process base pointer.
 #define PLAYER_POINTER_RELATIVE_ADDRESS 0x10F4F4
 #define OTHER_PLAYERS_ARRAY_RELATIVE_ADDRESS 0x10F4F8
 #define NUMBER_OF_PLAYERS_RELATIVE_ADDRESS 0x10F500
-
-#define GET_PLAYER_ON_TARGET_OFFSET  0x607C0
-
 // Health offset from start of player struct
 #define HEALTH_OFFSET 0xF8
 
 // Have to be updated manually.
-#define FUNC_LENGTH 29 // In bytes.
+#define INCREASE_HEALTH_BYTES_COUNT 29 // In bytes.
 #define INJECT_ADDRESS_NO_RECIOL 0x63781
 
 #define NEW_WEAPON_STRENGTH 50
@@ -41,12 +39,10 @@ CHAR BYTE_TO_INJECT = 0xba;
 
 
 VOID increase_player_health();
-VOID main_hack();
-VOID aimbot(PVOID);
+VOID hack_main();
 PVOID cancel_reciol(HANDLE, DWORD, return_codes_t* );
-player_t* find_closest_target(player_t**, player_t*, DWORD);
 VOID values_hack(PVOID);
-VOID HACK_LOOP(DWORD, HANDLE, player_t*, player_t**);
+HANDLE HACK_LOOP(DWORD, HANDLE, player_t*, player_t**);
 
 BOOL APIENTRY DllMain(HMODULE hModule,
     DWORD  ul_reason_for_call,
@@ -57,21 +53,27 @@ BOOL APIENTRY DllMain(HMODULE hModule,
     {
     case DLL_PROCESS_ATTACH:
     {
-        HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)main_hack, NULL, 0, NULL);
+        HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)hack_main, NULL, 0, NULL);
         if (hThread == NULL)
         {
             print_error(RC__CREATE_THREAD_FAILED);
         }
     }
     case DLL_THREAD_ATTACH:
+        break;
     case DLL_THREAD_DETACH:
+        break;
     case DLL_PROCESS_DETACH:
+        MessageBoxA(NULL, "FINISH HACK", "MESSAGE", MB_OK);
         break;
     }
     return TRUE;
 }
 
-VOID main_hack()
+/*
+* purpose: Start and finish all hacks.
+*/
+VOID hack_main()
 {
     MessageBoxA(NULL, "DLL injected Successfully", "HACK STARTED", MB_OK);
 
@@ -107,18 +109,76 @@ VOID main_hack()
         print_error(RC__CREATE_THREAD_FAILED);
     }
     //Running until Assultcube stops.
-    HACK_LOOP(process_base_address, game_process_handle, player_pointer, other_players);
+    HANDLE aim_bot_thread_handle = HACK_LOOP(process_base_address, game_process_handle, player_pointer, other_players);
+
+    if (p_increase_health_in_game_process != NULL)
+    {
+        if (!VirtualFreeEx(game_process_handle, p_increase_health_in_game_process, INCREASE_HEALTH_BYTES_COUNT, MEM_RELEASE))
+            print_error(RC__ALLOCATE_MEMORY_IN_REMOTE_PROCESS_FAILED);
+    }
+
+    if (aim_bot_thread_handle != NULL)
+        if (!TerminateThread(aim_bot_thread_handle, 0))
+            print_error(RC__TERMINATE_THREAD_FAILED);
+
+    if (values_hack_thread != NULL)
+        if(!TerminateThread(values_hack_thread, 0))
+            print_error(RC__TERMINATE_THREAD_FAILED);
+    
     MessageBoxA(NULL, "FINISH HACK", "MESSAGE", MB_OK);
 }
 
-VOID HACK_LOOP(DWORD process_base_address, HANDLE game_process_handle, player_t* player_pointer, player_t** other_players)
+//TODO: move aimbot to aimbot.c file.. doesn't work right now.
+#define GET_PLAYER_ON_TARGET_OFFSET  0x607C0
+/*
+* purpose: a loop that keep updating user Intention to the closest enemy. if there is a straight line between them he would also start shooting.
+*/
+VOID aimbot(PVOID process_base_address_pointer)
+{
+    DWORD process_base_address = *(DWORD*)process_base_address_pointer;
+    player_t* (*get_player_ot_target)() = process_base_address + GET_PLAYER_ON_TARGET_OFFSET;
+    player_t* player_pointer = *(player_t**)(process_base_address + PLAYER_POINTER_RELATIVE_ADDRESS);
+    player_t** other_players = (process_base_address + OTHER_PLAYERS_ARRAY_RELATIVE_ADDRESS);
+    DWORD number_of_players = *(DWORD*)(process_base_address + NUMBER_OF_PLAYERS_RELATIVE_ADDRESS);
+
+    player_t* target = NULL;
+    while (TRUE)
+    {
+        if (!number_of_players)
+        {
+            // if we're the only one in the game aimbot shouldn't work.
+
+            continue;
+        }
+        target = find_closest_target(other_players, player_pointer, number_of_players);
+        if (target == NULL)
+            continue;
+        player_pointer->yaw_angel = get_yaw_angel(player_pointer, target);
+        player_pointer->pitch_angel = get_pitch_angel(player_pointer, target);
+
+        // Checks if there is anything between the player and the target (like a wall).
+        if (target == get_player_ot_target())
+        {
+            player_pointer->is_shooting = TRUE;
+        }
+        else
+        {
+            player_pointer->is_shooting = FALSE;
+        }
+    }
+}
+
+/*
+* purpose: the hack loop. the loop would run until exit game or clicking '4'. used for set and unset hacks.
+* return: return an handle to the aimbot thread so main program could terminate it.
+*/
+HANDLE HACK_LOOP(DWORD process_base_address, HANDLE game_process_handle, player_t* player_pointer, player_t** other_players)
 {
     DWORD process_status = STILL_ACTIVE;
  
     //Aim bot variables.
     BOOL aimbot_status = FALSE;
     HANDLE aimbot_thread_handle = NULL;
-    player_t* (*get_player_ot_target)() = process_base_address + GET_PLAYER_ON_TARGET_OFFSET;
     player_t* target = NULL;
 
     // Map hack variables.
@@ -127,13 +187,15 @@ VOID HACK_LOOP(DWORD process_base_address, HANDLE game_process_handle, player_t*
     //in this var will be stored the original code
     //of filtering the enemy players and not showing them on the map.
     PVOID map_jnz_bytes = malloc(BYTES_COUNT);
+    DWORD number_of_players = *(DWORD*)(NUMBER_OF_PLAYERS_RELATIVE_ADDRESS + process_base_address);
+
     if (map_jnz_bytes == NULL)
     {
         print_error(RC__MALOC_FAILED);
-        return;
+        return NULL;
     }
 
-    while (GetExitCodeProcess(game_process_handle, &process_status) && process_status == STILL_ACTIVE)
+    while ((GetAsyncKeyState('3') & 1) == 0)
     {
 
         //& 1 because if the user clicked on the key the function return 1 and this is what we are looking for
@@ -154,7 +216,6 @@ VOID HACK_LOOP(DWORD process_base_address, HANDLE game_process_handle, player_t*
         //teleport nearby enemy
         if (GetAsyncKeyState('0') & 1)
         {
-            DWORD number_of_players = *(DWORD*)(NUMBER_OF_PLAYERS_RELATIVE_ADDRESS + process_base_address);
             if (number_of_players == 0)
                 continue;
 
@@ -179,91 +240,30 @@ VOID HACK_LOOP(DWORD process_base_address, HANDLE game_process_handle, player_t*
             if (aimbot_status)
             {
                 // Turn off aimbot.
-                TerminateThread(aimbot_thread_handle, 0);
+                if (TerminateThread(aimbot_thread_handle, 0))
+                {
+                    print_error(RC__TERMINATE_THREAD_FAILED);
+                    goto end;
+                }
                 player_pointer->is_shooting = FALSE;
             }
             aimbot_status = !aimbot_status;
         }
     }
 
+    end:
     if (map_jnz_bytes != NULL)
     {
         free(map_jnz_bytes);
     }
+    return aimbot_thread_handle;
 }
 
-VOID aimbot(PVOID process_base_address_pointer)
-{
-    DWORD process_base_address = *(DWORD *)process_base_address_pointer;
-    player_t* (*get_player_ot_target)() = process_base_address + GET_PLAYER_ON_TARGET_OFFSET;
-    player_t* player_pointer = *(player_t**)(process_base_address + PLAYER_POINTER_RELATIVE_ADDRESS);
-    player_t** other_players = (process_base_address + OTHER_PLAYERS_ARRAY_RELATIVE_ADDRESS);
-
-    player_t* target;
-    while (TRUE)
-    {
-        DWORD number_of_players = *(DWORD*)(process_base_address + NUMBER_OF_PLAYERS_RELATIVE_ADDRESS);
-        if (!number_of_players)
-        {
-            // if we're the only one in the game aimbot shouldn't work.
-            
-            continue;
-        }
-        target = find_closest_target(other_players, player_pointer, number_of_players);
-        if (target == NULL)
-            continue;
-        player_pointer->yaw_angel = get_yaw_angel(player_pointer, target);
-        player_pointer->pitch_angel = get_pitch_angel(player_pointer, target);
-
-        if (target == get_player_ot_target())
-        {
-            player_pointer->is_shooting = TRUE;
-        }
-        else
-        {
-            player_pointer->is_shooting = FALSE;
-        }
-    }
-}
-
-
-player_t* find_closest_target(player_t** other_players,player_t* user_player, DWORD number_of_players)
-{
-    /*
-        Return the closest enemy to player.
-    */
-
-    player_t* current_player;
-    player_t* best_target = NULL;
-    float min_distance = INT_MAX;
-    float current_distance;
-    DWORD counter = 1;
-    do
-    {
-        current_player = *((player_t**)(*other_players) + counter);
-        counter++;
-
-        if (!current_player || current_player->team == user_player->team || current_player->health > 100 || current_player->health <= 0)
-            continue;
-
-        current_distance = get_distance(&(user_player->cords), &(current_player->cords));
-
-        if (current_distance < min_distance)
-        {
-            best_target = current_player;
-            min_distance = current_distance;
-        }
-        
-    } while (counter < number_of_players);
-    return best_target;
-}
-
+/*
+* purpose: keep player's health shield and ammo above some const value.
+*/
 VOID values_hack(PVOID player)
 {
-    /*
-    
-    */
-
     player_t* player_pointer = (player_t*)player;
     //changing values hack
     while (TRUE)
@@ -286,6 +286,11 @@ VOID values_hack(PVOID player)
     }
 }
 
+
+/*
+* purpose: change the call to recoil function inside the game to my planted function increasePlayerHealth.
+* return: a pointer to increase health function. because main function should release it.
+*/
 PVOID cancel_reciol(HANDLE process_handle, DWORD process_base_address, return_codes_t* result_out)
 {
     return_codes_t result = RC__UNINITIALIZED;
@@ -310,7 +315,7 @@ PVOID cancel_reciol(HANDLE process_handle, DWORD process_base_address, return_co
     // Write function to remote process.
     // option 1:
     // allocate memory for the function
-    PVOID p_increase_health_in_game_process = (PVOID)VirtualAllocEx(process_handle, NULL, FUNC_LENGTH, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+    PVOID p_increase_health_in_game_process = (PVOID)VirtualAllocEx(process_handle, NULL, INCREASE_HEALTH_BYTES_COUNT, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
     if (p_increase_health_in_game_process == NULL)
     {
         *result_out = RC__ALLOCATE_MEMORY_IN_REMOTE_PROCESS_FAILED;
@@ -320,7 +325,7 @@ PVOID cancel_reciol(HANDLE process_handle, DWORD process_base_address, return_co
     // override function "hit" at address 0x29C20
     //PVOID hitFuncAddr = (PVOID)(baseAddress + 0x29C20);
     
-    result = patch_bytes(process_handle, p_increase_health_in_game_process, (PVOID)increase_player_health, FUNC_LENGTH);
+    result = patch_bytes(process_handle, p_increase_health_in_game_process, (PVOID)increase_player_health, INCREASE_HEALTH_BYTES_COUNT);
     if (result != RC__SUCCESS)
     {
         print_error(RC__PATCH_BYTES_FAILED);
@@ -353,6 +358,11 @@ PVOID cancel_reciol(HANDLE process_handle, DWORD process_base_address, return_co
     *result_out = RC__SUCCESS;
     return p_increase_health_in_game_process;
 }
+
+/*
+* purpose: increase player health.
+* node: this function written in asm.
+*/
 
 // __declspec(naked) saying that this code will be as he is.
 // the compiler won't add any code.

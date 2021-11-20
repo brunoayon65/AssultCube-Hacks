@@ -3,7 +3,10 @@
 #include <Psapi.h>
 #include "proc.h"
 
-
+/*
+purpose: get process id by his window name. other option is to insert process id manually.
+return: process id.
+*/
 DWORD get_process_id(LPCWSTR WINDOW_NAME)
 {
     // Return processs id base on his window name.

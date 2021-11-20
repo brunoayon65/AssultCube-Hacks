@@ -29,19 +29,22 @@ return_codes_t patch_bytes(HANDLE hProc, PVOID patchAddress, PVOID dataAddress, 
     return RC__SUCCESS;
 }
 
-BOOL replace_code_with_nop(HANDLE hProc, PVOID patchAddress, PVOID bufferStoreData, SIZE_T size)
+/*
+* replace the current code at address 'patch_address' with code that does nothing.
+*/
+return_codes_t replace_code_with_nop(HANDLE process_handle, PVOID patch_address, PVOID buffer_store_data, SIZE_T size)
 {
-    // nop is the instrucion in asm that does nothing.
-    BOOL result = TRUE;
-    if (!ReadProcessMemory(hProc, patchAddress, bufferStoreData, size, NULL))
-        return FALSE;
+    // nop is the instruction in asm that does nothing.
+    return_codes_t result = RC__UNINITIALIZED;
+    if (!ReadProcessMemory(process_handle, patch_address, buffer_store_data, size, NULL))
+        return RC__READ_IN_REMOTE_PROCESS_MEMORY_FAILED;
     PCHAR nop_arr = (PCHAR)malloc(size);
     for (int i = 0; i < size; i++)
     {
         *(nop_arr+i) = NOP_OPCODE;
     }
-    if (!patch_bytes(hProc, patchAddress, (PVOID)nop_arr, size))
-        result = FALSE;
-    free(nop_arr);
+    result = patch_bytes(process_handle, patch_address, (PVOID)nop_arr, size);
+    if(nop_arr != NULL)
+        free(nop_arr);
     return result;
 }
