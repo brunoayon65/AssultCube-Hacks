@@ -7,6 +7,7 @@
 #include "game_structs.h"
 #include "angels.h"    
 #include "TD_point.h"
+#include "return_codes.h"
 
 // all of this address are RVA - relative virtual address to the process base pointer.
 #define PLAYER_POINTER_RELATIVE_ADDRESS 0x10F4F4
@@ -35,26 +36,17 @@
 
 
 LPCWSTR WINDOW_NAME = L"AssaultCube";
-// For cancel reciol hack.
+// For cancel recoil hack.
 CHAR BYTE_TO_INJECT = 0xba;
 
-enum return_codes 
-{
-    RC__UNINITIALIZED = -1,
-    RC__SUCCESS = 0,
-    RC_CREATE_THREAD_FAILED
-};
 
-typedef enum return_codes return_codes_t;
-
-VOID print_error(const char *);
 VOID increase_player_health();
 VOID main_hack();
 VOID aimbot(PVOID);
-BOOL cancel_reciol(HANDLE, DWORD);
+PVOID cancel_reciol(HANDLE, DWORD, return_codes_t* );
 player_t* find_closest_target(player_t**, player_t*, DWORD);
 VOID values_hack(PVOID);
-
+VOID HACK_LOOP(DWORD, HANDLE, player_t*, player_t**);
 
 BOOL APIENTRY DllMain(HMODULE hModule,
     DWORD  ul_reason_for_call,
@@ -68,7 +60,7 @@ BOOL APIENTRY DllMain(HMODULE hModule,
         HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)main_hack, NULL, 0, NULL);
         if (hThread == NULL)
         {
-            print_error("Error oppening hack thread");
+            print_error(RC__CREATE_THREAD_FAILED);
         }
     }
     case DLL_THREAD_ATTACH:
@@ -83,64 +75,89 @@ VOID main_hack()
 {
     MessageBoxA(NULL, "DLL injected Successfully", "HACK STARTED", MB_OK);
 
-    BOOL is_map_hacked = FALSE;
+    player_t* player_pointer = NULL;
+    player_t** other_players = NULL;
+    PVOID p_increase_health_in_game_process = NULL;
+    DWORD number_of_players = 0;
+    return_codes_t result = RC__UNINITIALIZED;
+    DWORD process_base_address = 0;
+
+    DWORD proc_id = get_process_id(WINDOW_NAME);
+    HANDLE game_process_handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, proc_id);
+
+    if (game_process_handle == NULL)
+    {
+        print_error(RC__CREATE_PROCESS_FAILED);
+    }
+
+    process_base_address = GetModuleHandle(L"ac_client.exe");
+    player_pointer = *(player_t**)(process_base_address + PLAYER_POINTER_RELATIVE_ADDRESS);
+    number_of_players = *(DWORD*)(NUMBER_OF_PLAYERS_RELATIVE_ADDRESS + process_base_address);
+    other_players = process_base_address + OTHER_PLAYERS_ARRAY_RELATIVE_ADDRESS;
+
+    p_increase_health_in_game_process = cancel_reciol(game_process_handle, process_base_address, &result);
+    if (result != RC__SUCCESS)
+    {
+        print_error(RC__CANCEL_RECOIL_HACK_FAILED);
+    }
+
+    HANDLE values_hack_thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)values_hack, (PVOID)player_pointer, 0, NULL);
+    if (values_hack_thread == NULL)
+    {
+        print_error(RC__CREATE_THREAD_FAILED);
+    }
+    //Running until Assultcube stops.
+    HACK_LOOP(process_base_address, game_process_handle, player_pointer, other_players);
+    MessageBoxA(NULL, "FINISH HACK", "MESSAGE", MB_OK);
+}
+
+VOID HACK_LOOP(DWORD process_base_address, HANDLE game_process_handle, player_t* player_pointer, player_t** other_players)
+{
+    DWORD process_status = STILL_ACTIVE;
+ 
+    //Aim bot variables.
     BOOL aimbot_status = FALSE;
     HANDLE aimbot_thread_handle = NULL;
+    player_t* (*get_player_ot_target)() = process_base_address + GET_PLAYER_ON_TARGET_OFFSET;
+    player_t* target = NULL;
 
-    
-    DWORD proc_id = get_process_id(WINDOW_NAME);
-    HANDLE process_handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, proc_id);
-    
-    if (process_handle ==  NULL)
+    // Map hack variables.
+    BOOL map_hack_status = FALSE;
+    PVOID inject_address_map_hack = (PVOID)(process_base_address + INJECT_ADDRESS_MAP_HACK);
+    //in this var will be stored the original code
+    //of filtering the enemy players and not showing them on the map.
+    PVOID map_jnz_bytes = malloc(BYTES_COUNT);
+    if (map_jnz_bytes == NULL)
     {
+        print_error(RC__MALOC_FAILED);
         return;
     }
-    DWORD process_base_address = GetModuleHandle(L"ac_client.exe");
 
-    player_t* player_pointer = *(player_t**)(process_base_address + PLAYER_POINTER_RELATIVE_ADDRESS);
-    DWORD number_of_players = *(DWORD*)(NUMBER_OF_PLAYERS_RELATIVE_ADDRESS + process_base_address);
-    player_t**  other_players = process_base_address + OTHER_PLAYERS_ARRAY_RELATIVE_ADDRESS;
-    
-    // doing cancel reciol hack.
-    if (!cancel_reciol(process_handle, process_base_address))
-        print_error("error canceling reciol");
-    HANDLE values_hack_thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)values_hack, (PVOID)player_pointer, 0, NULL);
-
-    //in this var will be stored the original code
-    //of filtiring the enemy players and not showing them on the map.
-    PVOID map_jnz_bytes = malloc(BYTES_COUNT);
-
-    PVOID inject_address_map_hack = (PVOID)(process_base_address + INJECT_ADDRESS_MAP_HACK);
-    DWORD process_status = STILL_ACTIVE;
-    player_t* target;
-
-    player_t* (*get_player_ot_target)() = process_base_address + GET_PLAYER_ON_TARGET_OFFSET;
-
-    while (GetExitCodeProcess(process_handle, &process_status) && process_status == STILL_ACTIVE)
+    while (GetExitCodeProcess(game_process_handle, &process_status) && process_status == STILL_ACTIVE)
     {
 
         //& 1 because if the user clicked on the key the function return 1 and this is what we are looking for
         if (GetAsyncKeyState('2') & 1)
         {
-            //see enemys on map
-            if (!is_map_hacked)
+            //see enemies on map
+            if (!map_hack_status)
             {
-                replace_code_with_nop(process_handle, inject_address_map_hack, map_jnz_bytes, BYTES_COUNT);
+                replace_code_with_nop(game_process_handle, inject_address_map_hack, map_jnz_bytes, BYTES_COUNT);
             }
             else
             {
-                patch_bytes(process_handle, inject_address_map_hack, map_jnz_bytes, BYTES_COUNT);
+                patch_bytes(game_process_handle, inject_address_map_hack, map_jnz_bytes, BYTES_COUNT);
             }
-            is_map_hacked = !is_map_hacked;
+            map_hack_status = !map_hack_status;
         }
-        
+
         //teleport nearby enemy
         if (GetAsyncKeyState('0') & 1)
         {
             DWORD number_of_players = *(DWORD*)(NUMBER_OF_PLAYERS_RELATIVE_ADDRESS + process_base_address);
             if (number_of_players == 0)
                 continue;
-            
+
             target = find_closest_target(other_players, player_pointer, number_of_players);
             if (target == NULL)
                 // didn't find enemy player.
@@ -151,13 +168,13 @@ VOID main_hack()
 
         //aimbot
         if (GetAsyncKeyState('1') & 1)
-        { 
+        {
             if (!aimbot_status)
             {
                 // Turn on aimbot.
                 aimbot_thread_handle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)aimbot, &process_base_address, 0, NULL);
                 if (aimbot_thread_handle == NULL)
-                    print_error("Error aimbot");
+                    print_error(RC__CREATE_THREAD_FAILED);
             }
             if (aimbot_status)
             {
@@ -167,10 +184,12 @@ VOID main_hack()
             }
             aimbot_status = !aimbot_status;
         }
-
     }
 
-    free(map_jnz_bytes);
+    if (map_jnz_bytes != NULL)
+    {
+        free(map_jnz_bytes);
+    }
 }
 
 VOID aimbot(PVOID process_base_address_pointer)
@@ -198,7 +217,7 @@ VOID aimbot(PVOID process_base_address_pointer)
 
         if (target == get_player_ot_target())
         {
-            player_pointer->is_shooting = TRUE  ;
+            player_pointer->is_shooting = TRUE;
         }
         else
         {
@@ -267,10 +286,11 @@ VOID values_hack(PVOID player)
     }
 }
 
-BOOL cancel_reciol(HANDLE process_handle, DWORD process_base_address)
+PVOID cancel_reciol(HANDLE process_handle, DWORD process_base_address, return_codes_t* result_out)
 {
+    return_codes_t result = RC__UNINITIALIZED;
     /*
-    This program going to change this two lines who suppose to move edx reciol func address
+    This program going to change this two lines who suppose to move edx recoil func address
     *****************************************
     the code:
     .text:00463781                 mov     edx, [esi]
@@ -289,37 +309,49 @@ BOOL cancel_reciol(HANDLE process_handle, DWORD process_base_address)
 
     // Write function to remote process.
     // option 1:
-    // aloccate memory for the function
-    PVOID allocate_memory = (PVOID)VirtualAllocEx(process_handle, NULL, FUNC_LENGTH, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+    // allocate memory for the function
+    PVOID p_increase_health_in_game_process = (PVOID)VirtualAllocEx(process_handle, NULL, FUNC_LENGTH, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+    if (p_increase_health_in_game_process == NULL)
+    {
+        *result_out = RC__ALLOCATE_MEMORY_IN_REMOTE_PROCESS_FAILED;
+        return NULL;
+    }
     // option 2:
-    // overide function "hit" at address 0x29C20
+    // override function "hit" at address 0x29C20
     //PVOID hitFuncAddr = (PVOID)(baseAddress + 0x29C20);
     
-    if (!patch_bytes(process_handle, allocate_memory, (PVOID)increase_player_health, FUNC_LENGTH))
+    result = patch_bytes(process_handle, p_increase_health_in_game_process, (PVOID)increase_player_health, FUNC_LENGTH);
+    if (result != RC__SUCCESS)
     {
-        print_error("faild patch increaseHealth function in remote process memory");
-        return FALSE;
+        print_error(RC__PATCH_BYTES_FAILED);
+        *result_out = result;
+        return p_increase_health_in_game_process;
     }
 
-    // Find call reciol address
+    // Find call recoil address
     PVOID injection_address = (PVOID)(process_base_address + INJECT_ADDRESS_NO_RECIOL);
 
-    // Change call reciol to call inject function
-    if (!patch_bytes(process_handle, injection_address, &BYTE_TO_INJECT, sizeof(char)))
+    // Change call recoil to call inject function
+    result = patch_bytes(process_handle, injection_address, &BYTE_TO_INJECT, sizeof(char));
+    if (result != RC__SUCCESS)
     {
-        print_error("faild patch mov dx byte in remote process memory");
-        return FALSE;
+        print_error(RC__PATCH_BYTES_FAILED);
+        *result_out = result;
+        return p_increase_health_in_game_process;
     }
     //This way injectionAddr increase only by one.
     injection_address = (PCHAR)injection_address + 1;
     // Switch bytes to call mine function
-    if (!patch_bytes(process_handle, injection_address, &allocate_memory, sizeof(PVOID)))
+    result = patch_bytes(process_handle, injection_address, &p_increase_health_in_game_process, sizeof(PVOID));
+    if (result != RC__SUCCESS)
     {
-        print_error("faild patch increaseHealth *Address* in remote process memory");
-        return FALSE;
+        print_error(RC__PATCH_BYTES_FAILED);
+        *result_out = result;
+        return p_increase_health_in_game_process;
     }
 
-    return TRUE;
+    *result_out = RC__SUCCESS;
+    return p_increase_health_in_game_process;
 }
 
 // __declspec(naked) saying that this code will be as he is.
@@ -341,9 +373,4 @@ void __declspec(naked) increase_player_health()
         pop ebx
         retn 8
     }
-}
-
-void print_error(const char* txt)
-{
-    MessageBoxA(NULL, txt, NULL, MB_OK);
 }

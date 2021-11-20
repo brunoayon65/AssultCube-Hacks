@@ -24,6 +24,9 @@
     <Filter Include="TD_point">
       <UniqueIdentifier>{76954b33-4fe4-4461-8288-ddd71230b065}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Return Codes">
+      <UniqueIdentifier>{113fcad2-63da-491c-a84d-79bdaa2264c8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.c">
@@ -44,6 +47,9 @@
     <ClCompile Include="TD_point.c">
       <Filter>TD_point</Filter>
     </ClCompile>
+    <ClCompile Include="return_codes.c">
+      <Filter>Return Codes</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="mem.h">
@@ -60,6 +66,9 @@
     </ClInclude>
     <ClInclude Include="TD_point.h">
       <Filter>TD_point</Filter>
+    </ClInclude>
+    <ClInclude Include="return_codes.h">
+      <Filter>Return Codes</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

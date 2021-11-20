@@ -1,0 +1,22 @@
+#pragma once
+
+#include <Windows.h>
+
+enum return_codes
+{
+    RC__UNINITIALIZED = -1,
+    RC__SUCCESS = 0,
+    RC__CREATE_THREAD_FAILED,
+    RC__CREATE_PROCESS_FAILED,
+    RC__MALOC_FAILED,
+    RC__CANCEL_RECOIL_HACK_FAILED,
+    RC__ALLOCATE_MEMORY_IN_REMOTE_PROCESS_FAILED,
+    RC__PATCH_BYTES_FAILED,
+    RC__CHANGE_MEMORY_PERMISSIONS_FAILED,
+    RC__WRITE_IN_REMOTE_PROCESS_MEMORY_FAILED,
+    RC__READ_IN_REMOTE_PROCESS_MEMORY_FAILED
+};
+
+typedef enum return_codes return_codes_t;
+
+VOID print_error(return_codes_t );
