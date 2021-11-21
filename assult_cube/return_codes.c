@@ -1,8 +1,13 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <Windows.h>
 #include <stdio.h>
 #include "return_codes.h"
 
 #define MAX_MESSAGE_LENGTH 100
+
+FILE* logger_file = NULL;
+
 /*
 * purpose: print the error to the screen.
 * parameter: the error type.
@@ -53,6 +58,10 @@ VOID print_error(return_codes_t error)
 	case RC__TERMINATE_THREAD_FAILED:
 		snprintf(msg, MAX_MESSAGE_LENGTH, "Error in terminating thread (%d)", GetLastError());
 		break;
+	
+	case RC__OPEN_LOGGER_FILE_FAILED:
+		snprintf(msg, MAX_MESSAGE_LENGTH, "Open logger file failed (%d)", GetLastError());
+		break;
 
 	case RC__SUCCESS:
 		return;
@@ -61,5 +70,11 @@ VOID print_error(return_codes_t error)
 		snprintf(msg, MAX_MESSAGE_LENGTH, "Error occurred");
 		break;
 	}
+	// display on screen.
 	MessageBoxA(NULL, msg, "ERROR", MB_OK);
+	// write to logger
+	if (logger_file != NULL)
+	{
+		fprintf(logger_file, "Error: %s\n", msg);
+	}
 }

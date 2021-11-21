@@ -1,3 +1,6 @@
+//TODO: update readme
+
+#define _CRT_SECURE_NO_WARNINGS
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include <Windows.h>
 #include <stdlib.h>
@@ -32,11 +35,14 @@
 #define INJECT_ADDRESS_MAP_HACK 0x096A1
 #define BYTES_COUNT 6
 
+#define LOGGER_FILE_NAME "C:\\Users\\User\\Documents\\assult_cube_hack_logger.log"
+
 
 LPCWSTR WINDOW_NAME = L"AssaultCube";
 // For cancel recoil hack.
 CHAR BYTE_TO_INJECT = 0xba;
 
+extern FILE* logger_file;
 
 VOID increase_player_health();
 VOID hack_main();
@@ -64,6 +70,10 @@ BOOL APIENTRY DllMain(HMODULE hModule,
     case DLL_THREAD_DETACH:
         break;
     case DLL_PROCESS_DETACH:
+        if (logger_file != NULL)
+        {
+            fclose(logger_file);
+        }
         MessageBoxA(NULL, "FINISH HACK", "MESSAGE", MB_OK);
         break;
     }
@@ -75,7 +85,13 @@ BOOL APIENTRY DllMain(HMODULE hModule,
 */
 VOID hack_main()
 {
+    logger_file = fopen(LOGGER_FILE_NAME, "w");
+    if (logger_file == NULL)
+    {
+        print_error(RC__OPEN_LOGGER_FILE_FAILED);
+    }
     MessageBoxA(NULL, "DLL injected Successfully", "HACK STARTED", MB_OK);
+    fprintf(logger_file, "DLL injected Successfully HACK STARTED\n");
 
     player_t* player_pointer = NULL;
     player_t** other_players = NULL;
@@ -126,6 +142,10 @@ VOID hack_main()
             print_error(RC__TERMINATE_THREAD_FAILED);
     
     MessageBoxA(NULL, "FINISH HACK", "MESSAGE", MB_OK);
+    if (logger_file != NULL)
+    {
+        fclose(logger_file);
+    }
 }
 
 //TODO: move aimbot to aimbot.c file.. doesn't work right now.
@@ -157,7 +177,7 @@ VOID aimbot(PVOID process_base_address_pointer)
         player_pointer->pitch_angel = get_pitch_angel(player_pointer, target);
 
         // Checks if there is anything between the player and the target (like a wall).
-        if (target == get_player_ot_target())
+        if (target == get_player_ot_target() && target->health > 0)
         {
             player_pointer->is_shooting = TRUE;
         }
@@ -240,10 +260,10 @@ HANDLE HACK_LOOP(DWORD process_base_address, HANDLE game_process_handle, player_
             if (aimbot_status)
             {
                 // Turn off aimbot.
-                if (TerminateThread(aimbot_thread_handle, 0))
+                if (TerminateThread(aimbot_thread_handle, 0) == 0)
                 {
                     print_error(RC__TERMINATE_THREAD_FAILED);
-                    goto end;
+//                    goto end;
                 }
                 player_pointer->is_shooting = FALSE;
             }

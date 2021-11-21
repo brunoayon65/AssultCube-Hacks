@@ -2,6 +2,9 @@
 
 #include <Windows.h>
 
+// So other files could see the logger file pointer.
+// the definition of the var is in return_codes.c
+
 enum return_codes
 {
     RC__UNINITIALIZED = -1,
@@ -17,7 +20,8 @@ enum return_codes
     RC__READ_IN_REMOTE_PROCESS_MEMORY_FAILED,
     RC__GET_MODULE_fAILED,
     RC__OPEN_PROCESS_FAILED,
-    RC__TERMINATE_THREAD_FAILED
+    RC__TERMINATE_THREAD_FAILED,
+    RC__OPEN_LOGGER_FILE_FAILED
 };
 
 typedef enum return_codes return_codes_t;
