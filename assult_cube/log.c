@@ -72,9 +72,32 @@ VOID print_error(return_codes_t error)
 	}
 	// display on screen.
 	MessageBoxA(NULL, msg, "ERROR", MB_OK);
-	// write to logger
-	if (logger_file != NULL)
+	log_message(msg, LE__ERROR);
+}
+
+VOID log_message(char const* message, log_event_t type)
+{
+	if (logger_file == NULL)
+		return;
+
+	switch (type)
 	{
-		fprintf(logger_file, "Error: %s\n", msg);
+	case LE__DEBUG:
+		fprintf(logger_file, "DEBUG: %s\n", message);
+		break;
+
+	case LE__INFO:
+		fprintf(logger_file, "INFO: %s\n", message);
+		break;
+
+	case LE__ERROR:
+		fprintf(logger_file, "ERROR: %s\n", message);
+		break;
+	case LE__WARNING:
+		fprintf(logger_file, "WARNNING: %s\n", message);
+		break;
+	default:
+		fprintf(logger_file, "UNKNOWN: %s\n", message);
+		break;
 	}
 }

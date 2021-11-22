@@ -47,7 +47,7 @@
     <ClCompile Include="TD_point.c">
       <Filter>TD_point</Filter>
     </ClCompile>
-    <ClCompile Include="return_codes.c">
+    <ClCompile Include="log.c">
       <Filter>Return Codes</Filter>
     </ClCompile>
     <ClCompile Include="aimbot.c">

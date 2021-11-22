@@ -25,7 +25,7 @@
     <ClCompile Include="injectDll.c" />
     <ClCompile Include="mem.c" />
     <ClCompile Include="proc.c" />
-    <ClCompile Include="return_codes.c" />
+    <ClCompile Include="log.c" />
     <ClCompile Include="TD_point.c" />
   </ItemGroup>
   <ItemGroup>

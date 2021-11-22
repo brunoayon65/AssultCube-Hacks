@@ -4,7 +4,8 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include <Windows.h>
 #include <stdlib.h>
-#include "stdio.h"
+#include <string.h>
+#include <stdio.h>
 #include "proc.h"
 #include "mem.h"
 #include "game_structs.h"
@@ -35,7 +36,7 @@
 #define INJECT_ADDRESS_MAP_HACK 0x096A1
 #define BYTES_COUNT 6
 
-#define LOGGER_FILE_NAME "C:\\Users\\User\\Documents\\assult_cube_hack_logger.log"
+#define LOGGER_FILE_PATH "C:\\Users\\User\\Documents\\assult_cube_hack_logger.log"
 
 
 LPCWSTR WINDOW_NAME = L"AssaultCube";
@@ -46,7 +47,7 @@ extern FILE* logger_file;
 
 VOID increase_player_health();
 VOID hack_main();
-PVOID cancel_reciol(HANDLE, DWORD, return_codes_t* );
+PVOID cancel_reciol(HANDLE, DWORD, return_codes_t*, char [5]);
 VOID values_hack(PVOID);
 HANDLE HACK_LOOP(DWORD, HANDLE, player_t*, player_t**);
 
@@ -85,16 +86,17 @@ BOOL APIENTRY DllMain(HMODULE hModule,
 */
 VOID hack_main()
 {
-    logger_file = fopen(LOGGER_FILE_NAME, "w");
+    logger_file = fopen(LOGGER_FILE_PATH, "w");
     if (logger_file == NULL)
     {
         print_error(RC__OPEN_LOGGER_FILE_FAILED);
     }
     MessageBoxA(NULL, "DLL injected Successfully", "HACK STARTED", MB_OK);
-    fprintf(logger_file, "DLL injected Successfully HACK STARTED\n");
+    log_message("DLL injected Successfully", LE__INFO);
 
     player_t* player_pointer = NULL;
     player_t** other_players = NULL;
+    char old_call_recoil_bytes[5] = { 0 };
     PVOID p_increase_health_in_game_process = NULL;
     DWORD number_of_players = 0;
     return_codes_t result = RC__UNINITIALIZED;
@@ -113,11 +115,12 @@ VOID hack_main()
     number_of_players = *(DWORD*)(NUMBER_OF_PLAYERS_RELATIVE_ADDRESS + process_base_address);
     other_players = process_base_address + OTHER_PLAYERS_ARRAY_RELATIVE_ADDRESS;
 
-    p_increase_health_in_game_process = cancel_reciol(game_process_handle, process_base_address, &result);
+    p_increase_health_in_game_process = cancel_reciol(game_process_handle, process_base_address, &result, old_call_recoil_bytes);
     if (result != RC__SUCCESS)
     {
         print_error(RC__CANCEL_RECOIL_HACK_FAILED);
     }
+    log_message("Cancel recoil hack started ", LE__INFO);
 
     HANDLE values_hack_thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)values_hack, (PVOID)player_pointer, 0, NULL);
     if (values_hack_thread == NULL)
@@ -127,21 +130,32 @@ VOID hack_main()
     //Running until Assultcube stops.
     HANDLE aim_bot_thread_handle = HACK_LOOP(process_base_address, game_process_handle, player_pointer, other_players);
 
+    // Cancel recoil hack.
     if (p_increase_health_in_game_process != NULL)
     {
-        if (!VirtualFreeEx(game_process_handle, p_increase_health_in_game_process, INCREASE_HEALTH_BYTES_COUNT, MEM_RELEASE))
+        // First we need to change back to call recoil function.
+        result = patch_bytes(game_process_handle, (PVOID)(process_base_address + INJECT_ADDRESS_NO_RECIOL), old_call_recoil_bytes, 5);
+        if (result != RC__SUCCESS)
+        {
+            print_error(result);
+        }
+        // Second release increase_player_health function in game's process memory.
+        if (!VirtualFreeEx(game_process_handle, (LPVOID)p_increase_health_in_game_process, INCREASE_HEALTH_BYTES_COUNT, MEM_DECOMMIT))
             print_error(RC__ALLOCATE_MEMORY_IN_REMOTE_PROCESS_FAILED);
     }
 
+    // Cancel aim bot.
     if (aim_bot_thread_handle != NULL)
         if (!TerminateThread(aim_bot_thread_handle, 0))
             print_error(RC__TERMINATE_THREAD_FAILED);
 
+    // Cancel values hack.
     if (values_hack_thread != NULL)
         if(!TerminateThread(values_hack_thread, 0))
             print_error(RC__TERMINATE_THREAD_FAILED);
     
     MessageBoxA(NULL, "FINISH HACK", "MESSAGE", MB_OK);
+    log_message("Finish hack", LE__INFO);
     if (logger_file != NULL)
     {
         fclose(logger_file);
@@ -224,10 +238,12 @@ HANDLE HACK_LOOP(DWORD process_base_address, HANDLE game_process_handle, player_
             //see enemies on map
             if (!map_hack_status)
             {
+                log_message("Map hack turned on", LE__INFO);
                 replace_code_with_nop(game_process_handle, inject_address_map_hack, map_jnz_bytes, BYTES_COUNT);
             }
             else
             {
+                log_message("Map hack turned of", LE__INFO);
                 patch_bytes(game_process_handle, inject_address_map_hack, map_jnz_bytes, BYTES_COUNT);
             }
             map_hack_status = !map_hack_status;
@@ -240,11 +256,13 @@ HANDLE HACK_LOOP(DWORD process_base_address, HANDLE game_process_handle, player_
                 continue;
 
             target = find_closest_target(other_players, player_pointer, number_of_players);
+
             if (target == NULL)
                 // didn't find enemy player.
                 continue;
 
             switch_points(&(player_pointer->cords), &(target->cords));
+            log_message("Teleported to nearest target", LE__INFO);
         }
 
         //aimbot
@@ -256,6 +274,7 @@ HANDLE HACK_LOOP(DWORD process_base_address, HANDLE game_process_handle, player_
                 aimbot_thread_handle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)aimbot, &process_base_address, 0, NULL);
                 if (aimbot_thread_handle == NULL)
                     print_error(RC__CREATE_THREAD_FAILED);
+                log_message("Aimbot turned on", LE__INFO);
             }
             if (aimbot_status)
             {
@@ -263,9 +282,10 @@ HANDLE HACK_LOOP(DWORD process_base_address, HANDLE game_process_handle, player_
                 if (TerminateThread(aimbot_thread_handle, 0) == 0)
                 {
                     print_error(RC__TERMINATE_THREAD_FAILED);
-//                    goto end;
+                    goto end;
                 }
                 player_pointer->is_shooting = FALSE;
+                log_message("Aimbot turned of", LE__INFO);
             }
             aimbot_status = !aimbot_status;
         }
@@ -311,7 +331,7 @@ VOID values_hack(PVOID player)
 * purpose: change the call to recoil function inside the game to my planted function increasePlayerHealth.
 * return: a pointer to increase health function. because main function should release it.
 */
-PVOID cancel_reciol(HANDLE process_handle, DWORD process_base_address, return_codes_t* result_out)
+PVOID cancel_reciol(HANDLE process_handle, DWORD process_base_address, return_codes_t* result_out, char old_call_recoil_bytes[5])
 {
     return_codes_t result = RC__UNINITIALIZED;
     /*
@@ -355,6 +375,7 @@ PVOID cancel_reciol(HANDLE process_handle, DWORD process_base_address, return_co
 
     // Find call recoil address
     PVOID injection_address = (PVOID)(process_base_address + INJECT_ADDRESS_NO_RECIOL);
+    memcpy(old_call_recoil_bytes, injection_address, 5);
 
     // Change call recoil to call inject function
     result = patch_bytes(process_handle, injection_address, &BYTE_TO_INJECT, sizeof(char));
@@ -366,6 +387,7 @@ PVOID cancel_reciol(HANDLE process_handle, DWORD process_base_address, return_co
     }
     //This way injectionAddr increase only by one.
     injection_address = (PCHAR)injection_address + 1;
+
     // Switch bytes to call mine function
     result = patch_bytes(process_handle, injection_address, &p_increase_health_in_game_process, sizeof(PVOID));
     if (result != RC__SUCCESS)

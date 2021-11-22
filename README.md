@@ -26,7 +26,8 @@ git clone https://github.com/guykrinsky/assult_cube.git
 ## How to use
 First you need to download [the game](https://assault.cubers.net/download.html).
 
-The only thing you need to change before using the code is the variable PATH_TO_DLL in injectDll file.
+The only thing you need to change before using the code is the variable PATH_TO_DLL in injectDll file, 
+and the LOGGER_FILE_PATH to where ever you want your logger file be.
 After that you are ready to go.
 
 Run assultCube, get in a team death match game (not sure if the hack is working on free for all).

@@ -24,6 +24,16 @@ enum return_codes
     RC__OPEN_LOGGER_FILE_FAILED
 };
 
+enum log_event
+{
+    LE__WARNING,
+    LE__ERROR,
+    LE__INFO,
+    LE__DEBUG
+};
+
+typedef enum log_event log_event_t;
 typedef enum return_codes return_codes_t;
 
 VOID print_error(return_codes_t );
+VOID log_message(char const*, log_event_t );
